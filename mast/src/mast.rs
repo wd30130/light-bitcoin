@@ -180,7 +180,7 @@ pub fn tagged_leaf(pubkey: &PublicKey, hashlock: &H160) -> Result<H256> {
 
     let script = Builder::default()
 		.push_opcode(Opcode::OP_HASH160)
-		.push_bytes(&hashlock.to_vec())
+		.push_bytes(&hashlock.0.to_vec())
 		.push_opcode(Opcode::OP_EQUALVERIFY)
         .push_bytes(&pubkey.x_coor().to_vec())
         .push_opcode(Opcode::OP_CHECKSIG)
