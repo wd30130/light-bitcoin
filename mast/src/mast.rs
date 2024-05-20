@@ -1,10 +1,12 @@
+//Modified by Alex Wang, taproot script leaf node add hash verify
+
 #![allow(dead_code)]
 #![allow(clippy::module_inception)]
 
 use bitcoin_bech32::{constants::Network, u5, WitnessProgram};
 use codec::{Decode, Encode};
 use core::cmp::min;
-use light_bitcoin_script::{Builder, Opcode, H256};
+use light_bitcoin_script::{Builder, Opcode, H160, H256};
 use light_bitcoin_serialization::Stream;
 
 use super::{
@@ -40,11 +42,13 @@ pub struct Mast {
     pub person_pubkeys: Vec<PublicKey>,
     /// The index of the person_pubkeys corresponding to each pubkeys
     pub indexs: Vec<Vec<u32>>,
+	/// The hash160 of hash_preimage
+	pub hashlock: H160,
 }
 
 impl Mast {
     /// Create a mast instance
-    pub fn new(person_pubkeys: Vec<PublicKey>, threshold: u32) -> Result<Self> {
+    pub fn new(person_pubkeys: Vec<PublicKey>, threshold: u32, hashlock: H160) -> Result<Self> {
         let inner_pubkey = KeyAgg::key_aggregation_n(&person_pubkeys)?.x_tilde;
         let (pubkeys, indexs): (Vec<PublicKey>, Vec<Vec<u32>>) =
             generate_combine_pubkey(person_pubkeys.clone(), threshold)?
@@ -56,6 +60,7 @@ impl Mast {
             inner_pubkey,
             person_pubkeys,
             indexs,
+			hashlock,
         })
     }
 
@@ -79,7 +84,7 @@ impl Mast {
         let leaf_nodes = self
             .pubkeys
             .iter()
-            .map(tagged_leaf)
+            .map(|p|tagged_leaf(&p, &self.hashlock))
             .collect::<Result<Vec<_>>>()?;
         let mut matches = vec![true];
 
@@ -112,7 +117,7 @@ impl Mast {
         let leaf_nodes = self
             .pubkeys
             .iter()
-            .map(tagged_leaf)
+            .map(|p|tagged_leaf(&p, &self.hashlock))
             .collect::<Result<Vec<_>>>()?;
         let filter_proof = leaf_nodes[index];
         let pmt = PartialMerkleTree::from_leaf_nodes(&leaf_nodes, &matches)?;
@@ -168,12 +173,15 @@ pub fn generate_btc_address(pubkey: &PublicKey, network: &str) -> Result<String>
 /// Calculate the leaf nodes from the pubkey
 ///
 /// tagged_hash("TapLeaf", bytes([leaf_version]) + ser_size(pubkey))
-pub fn tagged_leaf(pubkey: &PublicKey) -> Result<H256> {
+pub fn tagged_leaf(pubkey: &PublicKey, hashlock: &H160) -> Result<H256> {
     let mut stream = Stream::default();
 
     let version = DEFAULT_TAPSCRIPT_VER & 0xfe;
 
     let script = Builder::default()
+		.push_opcode(Opcode::OP_HASH160)
+		.push_bytes(&hashlock.to_vec())
+		.push_opcode(Opcode::OP_EQUALVERIFY)
         .push_bytes(&pubkey.x_coor().to_vec())
         .push_opcode(Opcode::OP_CHECKSIG)
         .into_script();
