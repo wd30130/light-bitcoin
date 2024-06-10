@@ -3,6 +3,8 @@
 //! Here are some implementation references:
 //! [`bitcoin`]: https://github.com/bitcoin/bitcoin/blob/3820090bd6/src/secp256k1/src/modules/schnorrsig/main_impl.h
 //! [`taproot-workshop`]: https://github.com/bitcoinops/taproot-workshop/blob/master/solutions/1.1-schnorr-signatures-solutions.ipynb
+// Modified by Alex Wang  add partial_sign
+
 #![allow(non_snake_case)]
 
 use core::convert::TryInto;
@@ -147,6 +149,41 @@ pub fn sign_with_aux(
 
     // Get nonce k and nonce point R
     let (k, mut R) = nonce_function_bip340(&sec, &pkx, &msg, &aux)?;
+    R.y.normalize();
+    R.x.normalize();
+    let k_even = if R.y.is_odd() { k.neg() } else { k };
+
+    // Generate s = k + tagged_hash("BIP0340/challenge", R_x|P_x|msg) * d
+    let rx = XOnly::from(&mut R.x);
+    let h = schnorrsig_challenge(&rx, &pkx, &msg);
+    let s = k_even + h * sec;
+
+    // Generate sig = R_x|s
+    Ok(SchnorrSignature { rx, s })
+}
+
+/// Partial sign a message using the secret key for aggregating signature
+pub fn partial_sign(
+    msg: Message,
+    agg_r: PublicKey,
+	agg_pk: PublicKey,
+	nonce: SecretKey,
+    seckey: SecretKey,
+) -> Result<SchnorrSignature, Error> {
+    let mut pk: Affine = agg_pk.into();
+
+    pk.x.normalize();
+    pk.y.normalize();
+
+    let pkx = XOnly::from(&mut pk.x);
+
+    let sk: Scalar = seckey.into();
+    let sec = if pk.y.is_odd() { sk.neg() } else { sk };
+
+    // Get R.x and k_even
+	let k: Scalar = nonce.into();
+    let mut R: Affine = agg_r.into();
+	
     R.y.normalize();
     R.x.normalize();
     let k_even = if R.y.is_odd() { k.neg() } else { k };

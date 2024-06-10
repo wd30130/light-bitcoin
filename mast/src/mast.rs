@@ -43,7 +43,7 @@ pub struct Mast {
     /// The index of the person_pubkeys corresponding to each pubkeys
     pub indexs: Vec<Vec<u32>>,
 	/// The hash160 of hash_preimage
-	pub hashlock: H160,
+    pub hashlock: H160,
 }
 
 impl Mast {
