@@ -17,7 +17,7 @@ use crate::{
     Error, Message,
 };
 use digest::Digest;
-use libsecp256k1::{
+pub use libsecp256k1::{
     curve::{Affine, Jacobian, Scalar},
     PublicKey, SecretKey, ECMULT_CONTEXT,
 };
