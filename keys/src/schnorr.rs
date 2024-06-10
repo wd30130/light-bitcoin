@@ -166,8 +166,8 @@ pub fn sign_with_aux(
 pub fn partial_sign(
     msg: Message,
     agg_r: PublicKey,
-	agg_pk: PublicKey,
-	nonce: SecretKey,
+    agg_pk: PublicKey,
+    nonce: SecretKey,
     seckey: SecretKey,
 ) -> Result<SchnorrSignature, Error> {
     let mut pk: Affine = agg_pk.into();
